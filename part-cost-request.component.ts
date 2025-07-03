@@ -4,6 +4,7 @@ import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import * as XLSX from 'xlsx'
 import { parse, isValid, isBefore, isAfter, isEqual, startOfDay } from 'date-fns'
+import { ColDef, CellValueChangedEvent } from 'ag-grid-community'
 import {
   ActionData,
   ActionRequestEnum,
@@ -117,6 +118,88 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
 
   masterOriginals: MasterOriginal[] = []
   masterOriginalsFilter: MasterOriginal[] = []
+
+  // AG-Grid configuration
+  colDefs: ColDef[] = [
+    { 
+      field: 'rowIndex', 
+      headerName: '#', 
+      width: 50, 
+      cellRenderer: (params: any) => params.node.rowIndex + 1,
+      editable: false,
+      pinned: 'left'
+    },
+    { 
+      field: 'actions', 
+      headerName: 'Actions', 
+      width: 100, 
+      editable: false,
+      pinned: 'left',
+      cellRenderer: (params: any) => {
+        if (this.isDisableInput()) return '';
+        return `
+          <button class="p-button p-button-rounded p-button-danger p-button-sm" 
+                  onclick="deletePartCost(${params.node.rowIndex})" 
+                  title="Delete Part Cost">
+            <i class="pi pi-trash"></i>
+          </button>
+        `;
+      }
+    },
+    // Basic Information
+    { 
+      field: 'isParentPart', 
+      headerName: 'Is Parent Part', 
+      width: 120, 
+      editable: true,
+      cellRenderer: (params: any) => params.value ? 'V' : '',
+      cellEditor: 'agCheckboxCellEditor'
+    },
+    { 
+      field: 'isUploadSap', 
+      headerName: 'Is Upload SAP', 
+      width: 120, 
+      editable: true,
+      cellRenderer: (params: any) => params.value ? 'V' : '',
+      cellEditor: 'agCheckboxCellEditor'
+    },
+    { 
+      field: 'isNewPart', 
+      headerName: 'Is New Part', 
+      width: 120, 
+      editable: true,
+      cellRenderer: (params: any) => params.value ? 'V' : '',
+      cellEditor: 'agCheckboxCellEditor'
+    },
+    { field: 'basePartCode', headerName: 'Base Part Code', width: 150, editable: true },
+    { field: 'newPartCode', headerName: 'New Part Code', width: 150, editable: true },
+    { field: 'partNameSpec', headerName: 'Part Name/Spec', width: 200, editable: true },
+    // Present costs
+    { field: 'presentMaterialCost', headerName: 'Present Material Cost', width: 150, editable: true, type: 'numericColumn' },
+    { field: 'presentProcessingCost', headerName: 'Present Processing Cost', width: 150, editable: true, type: 'numericColumn' },
+    { field: 'presentOtherCost', headerName: 'Present Other Cost', width: 150, editable: true, type: 'numericColumn' },
+    { field: 'presentTotalPrice', headerName: 'Present Total Price', width: 150, editable: true, type: 'numericColumn' },
+    // New costs
+    { field: 'newMaterialCost', headerName: 'New Material Cost', width: 150, editable: true, type: 'numericColumn' },
+    { field: 'newProcessingCost', headerName: 'New Processing Cost', width: 150, editable: true, type: 'numericColumn' },
+    { field: 'newOtherCost', headerName: 'New Other Cost', width: 150, editable: true, type: 'numericColumn' },
+    { field: 'newTotalPrice', headerName: 'New Total Price', width: 150, editable: true, type: 'numericColumn' },
+    // Effective dates
+    { field: 'effectiveDateFrom', headerName: 'Effective From', width: 150, editable: true, type: 'dateColumn' },
+    { field: 'effectiveDateTo', headerName: 'Effective To', width: 150, editable: true, type: 'dateColumn' },
+    { field: 'leadTimeDay', headerName: 'Lead Time (Days)', width: 120, editable: true, type: 'numericColumn' },
+    // Additional information
+    { field: 'remark', headerName: 'Remark', width: 200, editable: true },
+    { field: 'approverComment', headerName: 'Approver Comment', width: 200, editable: true }
+  ];
+
+  defaultColDef: ColDef = {
+    flex: 1,
+    minWidth: 100,
+    filter: true,
+    sortable: true,
+    resizable: true
+  };
   masterOriginalsMap: Map<number, MasterOriginal> = new Map<number, MasterOriginal>()
 
   masterCrCuReasons: MasterCrCuReason[] = []
@@ -907,6 +990,52 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
     this.partCostRequestData.requestPartCostDetails.push(newRow)
     this.validateRow(newRow)
     setTimeout(() => this.editMode(), 500)
+  }
+
+  // AG-Grid event handler for cell value changes
+  onCellValueChanged(event: CellValueChangedEvent) {
+    console.log('Cell value changed:', event.data);
+    
+    // Update the data model
+    const updatedData = event.data as RequestPartCostDetail;
+    
+    // Validate the updated row
+    this.validateRow(updatedData);
+    
+    // Trigger any cost calculations if needed
+    if (event.colDef.field?.includes('Cost') || event.colDef.field?.includes('Price')) {
+      // Recalculate totals and differences if cost-related fields changed
+      this.calculateTotals(updatedData);
+    }
+    
+    // Mark form as dirty/changed
+    this.validateRequestPartCost();
+  }
+
+  private calculateTotals(partCost: RequestPartCostDetail) {
+    // Calculate present total if individual costs changed
+    if (this.isBuyPart()) {
+      const presentTotal = (partCost.presentMaterialCost || 0) + 
+                          (partCost.presentProcessingCost || 0) + 
+                          (partCost.presentOtherCost || 0);
+      if (presentTotal > 0) {
+        partCost.presentTotalPrice = presentTotal;
+      }
+
+      const newTotal = (partCost.newMaterialCost || 0) + 
+                      (partCost.newProcessingCost || 0) + 
+                      (partCost.newOtherCost || 0);
+      if (newTotal > 0) {
+        partCost.newTotalPrice = newTotal;
+      }
+    }
+
+    // Calculate differences
+    if (partCost.presentTotalPrice && partCost.newTotalPrice) {
+      partCost.diffTotalPriceCurrencyPart = partCost.newTotalPrice - partCost.presentTotalPrice;
+      partCost.diffTotalPricePercentCurrencyPart = 
+        ((partCost.newTotalPrice - partCost.presentTotalPrice) / partCost.presentTotalPrice) * 100;
+    }
   }
 
   validateRows(): boolean {
