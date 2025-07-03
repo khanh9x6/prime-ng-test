@@ -4,6 +4,7 @@ import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import * as XLSX from 'xlsx'
 import { parse, isValid, isBefore, isAfter, isEqual, startOfDay } from 'date-fns'
+import { ColDef, CellValueChangedEvent } from 'ag-grid-community'
 import {
   ActionData,
   ActionRequestEnum,
@@ -117,6 +118,296 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
 
   masterOriginals: MasterOriginal[] = []
   masterOriginalsFilter: MasterOriginal[] = []
+
+  // AG-Grid configuration
+  colDefs: ColDef[] = [
+    { 
+      field: 'rowIndex', 
+      headerName: '#', 
+      width: 50, 
+      cellRenderer: (params: any) => params.node.rowIndex + 1,
+      editable: false,
+      pinned: 'left',
+      suppressMovable: true
+    },
+    { 
+      field: 'actions', 
+      headerName: 'Actions', 
+      width: 100, 
+      editable: false,
+      pinned: 'left',
+      suppressMovable: true,
+      cellRenderer: (params: any) => {
+        if (this.isDisableInput()) return '';
+        return `<button class="btn btn-sm btn-danger" onclick="this.deleteRow(${params.node.rowIndex})" title="Delete"><i class="pi pi-trash"></i></button>`;
+      }
+    },
+    // Basic Information columns
+    { 
+      field: 'isParentPart', 
+      headerName: 'Is Parent Part', 
+      width: 120, 
+      editable: true,
+      cellRenderer: (params: any) => params.value ? 'V' : '',
+      cellEditor: 'agCheckboxCellEditor',
+      cellClass: 'text-center'
+    },
+    { 
+      field: 'isUploadSap', 
+      headerName: 'Is Upload SAP', 
+      width: 120, 
+      editable: true,
+      cellRenderer: (params: any) => params.value ? 'V' : '',
+      cellEditor: 'agCheckboxCellEditor',
+      cellClass: 'text-center'
+    },
+    { 
+      field: 'isNewPart', 
+      headerName: 'Is New Part', 
+      width: 120, 
+      editable: true,
+      cellRenderer: (params: any) => params.value ? 'V' : '',
+      cellEditor: 'agCheckboxCellEditor',
+      cellClass: 'text-center'
+    },
+    { 
+      field: 'basePartCode', 
+      headerName: 'Base Part Code', 
+      width: 150, 
+      editable: true,
+      cellClass: 'text-right'
+    },
+    { 
+      field: 'newPartCode', 
+      headerName: 'New Part Code', 
+      width: 150, 
+      editable: true,
+      cellClass: 'text-right'
+    },
+    { 
+      field: 'partNameSpec', 
+      headerName: 'Part Name/Spec', 
+      width: 200, 
+      editable: true
+    },
+    
+    // Present costs - Buy Part columns
+    { 
+      field: 'presentMaterialCost', 
+      headerName: 'Present Material Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentProcessingCost', 
+      headerName: 'Present Processing Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentOtherCost', 
+      headerName: 'Present Other Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentTotalPrice', 
+      headerName: 'Present Total Price', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    
+    // Present costs - Buy Material columns
+    { 
+      field: 'presentForeignCurrencyPerUnit', 
+      headerName: 'Present /KG', 
+      width: 120, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentWeightPerUnit', 
+      headerName: 'Weight/pc', 
+      width: 100, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.0-6')
+    },
+
+    // New costs - Buy Part columns
+    { 
+      field: 'newMaterialCost', 
+      headerName: 'New Material Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newProcessingCost', 
+      headerName: 'New Processing Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newOtherCost', 
+      headerName: 'New Other Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newTotalPrice', 
+      headerName: 'New Total Price', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+
+    // New costs - Buy Material columns
+    { 
+      field: 'newForeignCurrencyPerUnit', 
+      headerName: 'New /KG', 
+      width: 120, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newWeightPerUnit', 
+      headerName: 'Weight/pc', 
+      width: 100, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.0-6')
+    },
+
+    // Diff columns
+    { 
+      field: 'diffTotalPriceCurrencyPart', 
+      headerName: 'Diff', 
+      width: 120, 
+      editable: false,
+      cellClass: (params: any) => {
+        const value = params.value;
+        let classes = 'text-center fw-bold';
+        if (value < 0) classes += ' background-red';
+        else if (value > 0) classes += ' background-green';
+        return classes;
+      },
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'diffTotalPricePercentCurrencyPart', 
+      headerName: 'Diff %', 
+      width: 100, 
+      editable: false,
+      cellClass: (params: any) => {
+        const value = params.value;
+        let classes = 'text-center fw-bold';
+        if (value < 0) classes += ' background-red';
+        else if (value > 0) classes += ' background-green';
+        return classes;
+      },
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.2-2') + '%'
+    },
+
+    // Effective dates
+    { 
+      field: 'effectiveDateFrom', 
+      headerName: 'Effective From', 
+      width: 150, 
+      editable: true,
+      cellEditor: 'agDateCellEditor',
+      cellClass: 'text-center',
+      valueFormatter: (params: any) => this.formatDate(params.value)
+    },
+    { 
+      field: 'effectiveDateTo', 
+      headerName: 'Effective To', 
+      width: 150, 
+      editable: true,
+      cellEditor: 'agDateCellEditor',
+      cellClass: 'text-center',
+      valueFormatter: (params: any) => this.formatDate(params.value)
+    },
+    { 
+      field: 'leadTimeDay', 
+      headerName: 'Lead Time (Days)', 
+      width: 120, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-center',
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.0-0')
+    },
+
+    // Additional information
+    { 
+      field: 'remark', 
+      headerName: 'Remark', 
+      width: 200, 
+      editable: true
+    },
+    { 
+      field: 'effectiveModel', 
+      headerName: 'Effective Model', 
+      width: 150, 
+      editable: true
+    },
+    { 
+      field: 'approverComment', 
+      headerName: 'Approver Comment', 
+      width: 200, 
+      editable: true,
+      hide: () => !this.isRequestPendingApprover()
+    }
+  ];
+
+  defaultColDef: ColDef = {
+    flex: 1,
+    minWidth: 100,
+    filter: true,
+    sortable: true,
+    resizable: true,
+    suppressMovable: false
+  };
   masterOriginalsMap: Map<number, MasterOriginal> = new Map<number, MasterOriginal>()
 
   masterCrCuReasons: MasterCrCuReason[] = []
@@ -907,6 +1198,89 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
     this.partCostRequestData.requestPartCostDetails.push(newRow)
     this.validateRow(newRow)
     setTimeout(() => this.editMode(), 500)
+  }
+
+  // AG-Grid event handler for cell value changes
+  onCellValueChanged(event: CellValueChangedEvent) {
+    console.log('Cell value changed:', event.data);
+    
+    // Update the data model
+    const updatedData = event.data as RequestPartCostDetail;
+    
+    // Validate the updated row
+    this.validateRow(updatedData);
+    
+    // Trigger any cost calculations if needed
+    if (event.colDef.field?.includes('Cost') || event.colDef.field?.includes('Price')) {
+      // Recalculate totals and differences if cost-related fields changed
+      this.calculateTotals(updatedData);
+    }
+    
+    // Mark form as dirty/changed
+    this.validateRequestPartCost();
+  }
+
+  private calculateTotals(partCost: RequestPartCostDetail) {
+    // Calculate present total if individual costs changed
+    if (this.isBuyPart()) {
+      const presentTotal = (partCost.presentMaterialCost || 0) + 
+                          (partCost.presentProcessingCost || 0) + 
+                          (partCost.presentOtherCost || 0);
+      if (presentTotal > 0) {
+        partCost.presentTotalPrice = presentTotal;
+      }
+
+      const newTotal = (partCost.newMaterialCost || 0) + 
+                      (partCost.newProcessingCost || 0) + 
+                      (partCost.newOtherCost || 0);
+      if (newTotal > 0) {
+        partCost.newTotalPrice = newTotal;
+      }
+    }
+
+    // Calculate differences
+    if (partCost.presentTotalPrice && partCost.newTotalPrice) {
+      partCost.diffTotalPriceCurrencyPart = partCost.newTotalPrice - partCost.presentTotalPrice;
+      partCost.diffTotalPricePercentCurrencyPart = 
+        ((partCost.newTotalPrice - partCost.presentTotalPrice) / partCost.presentTotalPrice) * 100;
+    }
+  }
+
+  // Helper methods for AG-Grid formatting
+  private formatCurrency(value: any, type: 'part' | 'payment'): string {
+    if (value == null || value === '') return '';
+    const format = type === 'part' ? this.getCurrencyPartNumberFormat() : this.getCurrencyPaymentNumberFormat();
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6
+    }).format(value);
+  }
+
+  private formatNumber(value: any, format: string): string {
+    if (value == null || value === '') return '';
+    const parts = format.split('-');
+    const minDigits = parseInt(parts[0].split('.')[1]);
+    const maxDigits = parseInt(parts[1]);
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: minDigits,
+      maximumFractionDigits: maxDigits
+    }).format(value);
+  }
+
+  private formatDate(value: any): string {
+    if (!value) return '';
+    return new Date(value).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  // Method to refresh column definitions when data type changes
+  refreshColumnDefinitions() {
+    // This can be called when isBuyPart() or isBuyMaterial() conditions change
+    // to show/hide relevant columns
+    this.colDefs = [...this.colDefs]; // Force update
   }
 
   validateRows(): boolean {
