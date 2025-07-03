@@ -127,7 +127,8 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
       width: 50, 
       cellRenderer: (params: any) => params.node.rowIndex + 1,
       editable: false,
-      pinned: 'left'
+      pinned: 'left',
+      suppressMovable: true
     },
     { 
       field: 'actions', 
@@ -135,25 +136,21 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
       width: 100, 
       editable: false,
       pinned: 'left',
+      suppressMovable: true,
       cellRenderer: (params: any) => {
         if (this.isDisableInput()) return '';
-        return `
-          <button class="p-button p-button-rounded p-button-danger p-button-sm" 
-                  onclick="deletePartCost(${params.node.rowIndex})" 
-                  title="Delete Part Cost">
-            <i class="pi pi-trash"></i>
-          </button>
-        `;
+        return `<button class="btn btn-sm btn-danger" onclick="this.deleteRow(${params.node.rowIndex})" title="Delete"><i class="pi pi-trash"></i></button>`;
       }
     },
-    // Basic Information
+    // Basic Information columns
     { 
       field: 'isParentPart', 
       headerName: 'Is Parent Part', 
       width: 120, 
       editable: true,
       cellRenderer: (params: any) => params.value ? 'V' : '',
-      cellEditor: 'agCheckboxCellEditor'
+      cellEditor: 'agCheckboxCellEditor',
+      cellClass: 'text-center'
     },
     { 
       field: 'isUploadSap', 
@@ -161,7 +158,8 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
       width: 120, 
       editable: true,
       cellRenderer: (params: any) => params.value ? 'V' : '',
-      cellEditor: 'agCheckboxCellEditor'
+      cellEditor: 'agCheckboxCellEditor',
+      cellClass: 'text-center'
     },
     { 
       field: 'isNewPart', 
@@ -169,28 +167,237 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
       width: 120, 
       editable: true,
       cellRenderer: (params: any) => params.value ? 'V' : '',
-      cellEditor: 'agCheckboxCellEditor'
+      cellEditor: 'agCheckboxCellEditor',
+      cellClass: 'text-center'
     },
-    { field: 'basePartCode', headerName: 'Base Part Code', width: 150, editable: true },
-    { field: 'newPartCode', headerName: 'New Part Code', width: 150, editable: true },
-    { field: 'partNameSpec', headerName: 'Part Name/Spec', width: 200, editable: true },
-    // Present costs
-    { field: 'presentMaterialCost', headerName: 'Present Material Cost', width: 150, editable: true, type: 'numericColumn' },
-    { field: 'presentProcessingCost', headerName: 'Present Processing Cost', width: 150, editable: true, type: 'numericColumn' },
-    { field: 'presentOtherCost', headerName: 'Present Other Cost', width: 150, editable: true, type: 'numericColumn' },
-    { field: 'presentTotalPrice', headerName: 'Present Total Price', width: 150, editable: true, type: 'numericColumn' },
-    // New costs
-    { field: 'newMaterialCost', headerName: 'New Material Cost', width: 150, editable: true, type: 'numericColumn' },
-    { field: 'newProcessingCost', headerName: 'New Processing Cost', width: 150, editable: true, type: 'numericColumn' },
-    { field: 'newOtherCost', headerName: 'New Other Cost', width: 150, editable: true, type: 'numericColumn' },
-    { field: 'newTotalPrice', headerName: 'New Total Price', width: 150, editable: true, type: 'numericColumn' },
+    { 
+      field: 'basePartCode', 
+      headerName: 'Base Part Code', 
+      width: 150, 
+      editable: true,
+      cellClass: 'text-right'
+    },
+    { 
+      field: 'newPartCode', 
+      headerName: 'New Part Code', 
+      width: 150, 
+      editable: true,
+      cellClass: 'text-right'
+    },
+    { 
+      field: 'partNameSpec', 
+      headerName: 'Part Name/Spec', 
+      width: 200, 
+      editable: true
+    },
+    
+    // Present costs - Buy Part columns
+    { 
+      field: 'presentMaterialCost', 
+      headerName: 'Present Material Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentProcessingCost', 
+      headerName: 'Present Processing Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentOtherCost', 
+      headerName: 'Present Other Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentTotalPrice', 
+      headerName: 'Present Total Price', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    
+    // Present costs - Buy Material columns
+    { 
+      field: 'presentForeignCurrencyPerUnit', 
+      headerName: 'Present /KG', 
+      width: 120, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'presentWeightPerUnit', 
+      headerName: 'Weight/pc', 
+      width: 100, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.0-6')
+    },
+
+    // New costs - Buy Part columns
+    { 
+      field: 'newMaterialCost', 
+      headerName: 'New Material Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newProcessingCost', 
+      headerName: 'New Processing Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newOtherCost', 
+      headerName: 'New Other Cost', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newTotalPrice', 
+      headerName: 'New Total Price', 
+      width: 150, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyPart(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+
+    // New costs - Buy Material columns
+    { 
+      field: 'newForeignCurrencyPerUnit', 
+      headerName: 'New /KG', 
+      width: 120, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'newWeightPerUnit', 
+      headerName: 'Weight/pc', 
+      width: 100, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-right',
+      hide: () => !this.isBuyMaterial(),
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.0-6')
+    },
+
+    // Diff columns
+    { 
+      field: 'diffTotalPriceCurrencyPart', 
+      headerName: 'Diff', 
+      width: 120, 
+      editable: false,
+      cellClass: (params: any) => {
+        const value = params.value;
+        let classes = 'text-center fw-bold';
+        if (value < 0) classes += ' background-red';
+        else if (value > 0) classes += ' background-green';
+        return classes;
+      },
+      valueFormatter: (params: any) => this.formatCurrency(params.value, 'part')
+    },
+    { 
+      field: 'diffTotalPricePercentCurrencyPart', 
+      headerName: 'Diff %', 
+      width: 100, 
+      editable: false,
+      cellClass: (params: any) => {
+        const value = params.value;
+        let classes = 'text-center fw-bold';
+        if (value < 0) classes += ' background-red';
+        else if (value > 0) classes += ' background-green';
+        return classes;
+      },
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.2-2') + '%'
+    },
+
     // Effective dates
-    { field: 'effectiveDateFrom', headerName: 'Effective From', width: 150, editable: true, type: 'dateColumn' },
-    { field: 'effectiveDateTo', headerName: 'Effective To', width: 150, editable: true, type: 'dateColumn' },
-    { field: 'leadTimeDay', headerName: 'Lead Time (Days)', width: 120, editable: true, type: 'numericColumn' },
+    { 
+      field: 'effectiveDateFrom', 
+      headerName: 'Effective From', 
+      width: 150, 
+      editable: true,
+      cellEditor: 'agDateCellEditor',
+      cellClass: 'text-center',
+      valueFormatter: (params: any) => this.formatDate(params.value)
+    },
+    { 
+      field: 'effectiveDateTo', 
+      headerName: 'Effective To', 
+      width: 150, 
+      editable: true,
+      cellEditor: 'agDateCellEditor',
+      cellClass: 'text-center',
+      valueFormatter: (params: any) => this.formatDate(params.value)
+    },
+    { 
+      field: 'leadTimeDay', 
+      headerName: 'Lead Time (Days)', 
+      width: 120, 
+      editable: true, 
+      type: 'numericColumn',
+      cellClass: 'text-center',
+      valueFormatter: (params: any) => this.formatNumber(params.value, '1.0-0')
+    },
+
     // Additional information
-    { field: 'remark', headerName: 'Remark', width: 200, editable: true },
-    { field: 'approverComment', headerName: 'Approver Comment', width: 200, editable: true }
+    { 
+      field: 'remark', 
+      headerName: 'Remark', 
+      width: 200, 
+      editable: true
+    },
+    { 
+      field: 'effectiveModel', 
+      headerName: 'Effective Model', 
+      width: 150, 
+      editable: true
+    },
+    { 
+      field: 'approverComment', 
+      headerName: 'Approver Comment', 
+      width: 200, 
+      editable: true,
+      hide: () => !this.isRequestPendingApprover()
+    }
   ];
 
   defaultColDef: ColDef = {
@@ -198,7 +405,8 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
     minWidth: 100,
     filter: true,
     sortable: true,
-    resizable: true
+    resizable: true,
+    suppressMovable: false
   };
   masterOriginalsMap: Map<number, MasterOriginal> = new Map<number, MasterOriginal>()
 
@@ -1036,6 +1244,43 @@ export class PartCostRequestComponent implements OnInit, OnDestroy {
       partCost.diffTotalPricePercentCurrencyPart = 
         ((partCost.newTotalPrice - partCost.presentTotalPrice) / partCost.presentTotalPrice) * 100;
     }
+  }
+
+  // Helper methods for AG-Grid formatting
+  private formatCurrency(value: any, type: 'part' | 'payment'): string {
+    if (value == null || value === '') return '';
+    const format = type === 'part' ? this.getCurrencyPartNumberFormat() : this.getCurrencyPaymentNumberFormat();
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6
+    }).format(value);
+  }
+
+  private formatNumber(value: any, format: string): string {
+    if (value == null || value === '') return '';
+    const parts = format.split('-');
+    const minDigits = parseInt(parts[0].split('.')[1]);
+    const maxDigits = parseInt(parts[1]);
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: minDigits,
+      maximumFractionDigits: maxDigits
+    }).format(value);
+  }
+
+  private formatDate(value: any): string {
+    if (!value) return '';
+    return new Date(value).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  // Method to refresh column definitions when data type changes
+  refreshColumnDefinitions() {
+    // This can be called when isBuyPart() or isBuyMaterial() conditions change
+    // to show/hide relevant columns
+    this.colDefs = [...this.colDefs]; // Force update
   }
 
   validateRows(): boolean {

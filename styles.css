@@ -2,6 +2,46 @@
 @import "ag-grid-community/styles/ag-grid.css";
 @import "ag-grid-community/styles/ag-theme-quartz.css";
 
+/* Custom AG-Grid styling to match PrimeNG table */
+.ag-theme-quartz {
+  --ag-header-height: 32px;
+  --ag-row-height: 32px;
+  --ag-font-size: 13px;
+  --ag-header-foreground-color: #495057;
+  --ag-header-background-color: #f8f9fa;
+  --ag-odd-row-background-color: #fcfcfc;
+  --ag-row-border-color: #dee2e6;
+  --ag-border-color: #dee2e6;
+}
+
+.ag-theme-quartz .ag-header-cell {
+  border-right: 1px solid #dee2e6;
+  padding: 4px 8px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.ag-theme-quartz .ag-cell {
+  border-right: 1px solid #dee2e6;
+  padding: 2px 8px;
+  line-height: 28px;
+}
+
+.ag-theme-quartz .ag-row {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.ag-theme-quartz .ag-row:hover {
+  background-color: #f5f5f5;
+}
+
+/* Style for invalid cells */
+.ag-theme-quartz .invalid-cell {
+  border-color: red !important;
+  border-width: 1px !important;
+  background-color: rgba(244, 67, 54, 0.1) !important;
+}
+
 /* Additional styles for the application */
 body {
   margin: 0;
